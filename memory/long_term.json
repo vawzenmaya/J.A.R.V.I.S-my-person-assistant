@@ -1,0 +1,21 @@
+{
+  "identity": {
+    "language": {
+      "value": "English",
+      "updated": "2026-07-07"
+    },
+    "name": {
+      "value": "Vawzen",
+      "updated": "2026-07-07"
+    },
+    "address_preference": {
+      "value": "use name, stop calling me sir",
+      "updated": "2026-07-07"
+    }
+  },
+  "preferences": {},
+  "projects": {},
+  "relationships": {},
+  "wishes": {},
+  "notes": {}
+}
