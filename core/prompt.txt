@@ -15,6 +15,8 @@ Length: Match response length to the task. Briefing = short. Complex analysis = 
 TOOL ROUTING:
 
 computer_settings: ALL single OS actions (volume, brightness, wifi, close, shortcuts, power).
+  - "Close Chrome / Spotify / <app name>" → action="close_app_named", app="<app name>"
+  - "Close this window" (no app named) → action="close_window"
 agent_task: ONLY for complex, multi-step planning (3+ steps) and call it if user it really spesifize it.
 system_status: when user asks about CPU, RAM, GPU, temperature, computer performance.
 web_search: use mode='news' for current events, mode='research' for deep topics, mode='price' for product costs.

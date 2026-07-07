@@ -1,5 +1,6 @@
 import platform as _platform
 import subprocess as _subprocess
+from actions.computer_settings import computer_settings, VALID_ACTIONS
 
 # ── Nuclear: force CREATE_NO_WINDOW on EVERY subprocess call on Windows ───────
 # This patches Popen itself, so no per-file flag is needed anywhere.
@@ -236,9 +237,10 @@ TOOL_DECLARATIONS = [
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "action":      {"type": "STRING", "description": "The action to perform"},
+                "action":      {"type": "STRING", "description": "The exact action to perform", "enum": VALID_ACTIONS},
                 "description": {"type": "STRING", "description": "Natural language description of what to do"},
-                "value":       {"type": "STRING", "description": "Optional value: volume level, text to type, etc."}
+                "value":       {"type": "STRING", "description": "Optional value: volume level, text to type, etc."},
+                "app":         {"type": "STRING", "description": "App/process name for close_app_named, e.g. 'chrome', 'spotify'"}
             },
             "required": []
         }

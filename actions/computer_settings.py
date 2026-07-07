@@ -103,8 +103,13 @@ def volume_set(value: int):
             return
         except Exception as e:
             print(f"[Settings] pycaw failed, using keypress fallback: {e}")
-            pyautogui.press("volumemute")
-            pyautogui.press("volumemute")
+            # Approximate: mute mutes/unmutes and doesn't set a level, so instead
+            # bring volume to 0 via repeated volumedown, then step up toward target.
+            for _ in range(50):
+                pyautogui.press("volumedown")
+            steps = round(value / 2)  # each volumeup press ≈ 2%
+            for _ in range(steps):
+                pyautogui.press("volumeup")
     elif _OS == "Darwin":
         subprocess.run(["osascript", "-e", f"set volume output volume {value}"],
             capture_output=True)
@@ -571,7 +576,38 @@ ACTION_MAP: dict[str, callable] = {
 
 _DANGEROUS_ACTIONS = {"restart", "shutdown"}
 
+_PROCESS_NAMES = {
+    "chrome": "chrome.exe", "edge": "msedge.exe", "firefox": "firefox.exe",
+    "brave": "brave.exe", "opera": "opera.exe", "operagx": "opera.exe",
+    "vivaldi": "vivaldi.exe", "spotify": "Spotify.exe", "discord": "Discord.exe",
+    "notepad": "notepad.exe", "vscode": "Code.exe", "word": "WINWORD.EXE",
+    "excel": "EXCEL.EXE", "steam": "steam.exe",
+}
 
+def kill_named_app(name: str) -> str:
+    proc = _PROCESS_NAMES.get(name.lower().strip())
+    if not proc:
+        proc = name if name.lower().endswith(".exe") else f"{name}.exe"
+
+    if _OS == "Windows":
+        result = subprocess.run(
+            ["taskkill", "/IM", proc, "/F"],
+            capture_output=True, text=True, **_WIN_HIDE,
+        )
+        out = (result.stdout + result.stderr).strip()
+        if result.returncode == 0:
+            return f"Closed {proc}."
+        if "not found" in out.lower():
+            return f"{proc} was not running."
+        return f"Could not close {proc}: {out[:150]}"
+    else:
+        subprocess.run(["pkill", "-f", proc.replace(".exe", "")], capture_output=True)
+        return f"Closed {proc}."
+
+VALID_ACTIONS = sorted(set(ACTION_MAP.keys()) | {
+    "volume_set", "type_text", "press_key", "reload_n", "scroll_up", "scroll_down",
+    "close_app_named",
+})
 
 def _detect_action(description: str) -> dict:
 
@@ -643,6 +679,12 @@ def computer_settings(
                 f"This will {action} the computer. "
                 f"Please confirm by calling again with confirmed=yes."
             )
+
+    if action in ("close_app_named", "kill_app", "force_close"):
+        app = str(value or params.get("app", "")).strip()
+        if not app:
+            return "No application name specified."
+        return kill_named_app(app)
 
     if action == "volume_set":
         try:
