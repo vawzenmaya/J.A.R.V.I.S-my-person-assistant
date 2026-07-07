@@ -280,7 +280,13 @@ TOOL_DECLARATIONS = [
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "action":      {"type": "STRING", "description": "list | create_file | create_folder | delete | move | copy | rename | read | write | find | largest | disk_usage | organize_desktop | info"},
+                "action":      {
+                    "type": "STRING",
+                    "description": "list | open | create_file | create_folder | delete | move | copy | rename | read | write | find | largest | disk_usage | organize_folder | info",
+                    "enum": ["list", "open", "create_file", "create_folder", "delete", "move",
+                            "copy", "rename", "read", "write", "find", "largest",
+                            "disk_usage", "organize_folder", "info"]
+                                },
                 "path":        {"type": "STRING", "description": "File/folder path or shortcut: desktop, downloads, documents, home"},
                 "destination": {"type": "STRING", "description": "Destination path for move/copy"},
                 "new_name":    {"type": "STRING", "description": "New name for rename"},

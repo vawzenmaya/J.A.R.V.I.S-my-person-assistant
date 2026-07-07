@@ -1,6 +1,7 @@
 import os
 import shutil
 import platform
+import subprocess
 from pathlib import Path
 from datetime import datetime
 
@@ -80,9 +81,16 @@ def _resolve_path(raw: str) -> Path:
         "videos":    _get_videos(),
         "home":      Path.home(),
     }
-    lower = raw.strip().lower()
+    raw   = raw.strip()
+    lower = raw.lower()
     if lower in shortcuts:
         return shortcuts[lower]
+
+    # Support "shortcut/subfolder" e.g. "desktop/NF" → Desktop/NF
+    parts = raw.replace("\\", "/").split("/", 1)
+    if len(parts) == 2 and parts[0].strip().lower() in shortcuts:
+        return shortcuts[parts[0].strip().lower()] / parts[1]
+
     return Path(raw).expanduser()
 
 def _format_size(b: int) -> str:
@@ -389,7 +397,7 @@ def get_disk_usage(path: str = "home") -> str:
         return f"Could not get disk usage: {e}"
 
 
-def organize_desktop() -> str:
+def organize_folder(path: str = "desktop") -> str:
     type_map = {
         "Images":    {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg", ".ico", ".heic"},
         "Documents": {".pdf", ".doc", ".docx", ".txt", ".xls", ".xlsx",
@@ -401,22 +409,26 @@ def organize_desktop() -> str:
                       ".cpp", ".java", ".cs", ".go", ".rs", ".sh"},
     }
 
-    desktop = _get_desktop()
+    target_folder = _resolve_path(path)
+    if not _is_safe_path(target_folder):
+        return f"Access denied: {target_folder}"
+    if not target_folder.exists():
+        return f"Path not found: {path}"
+
     moved, skipped = [], []
 
     try:
-        for item in desktop.iterdir():
-            # Klasörlere, gizli dosyalara ve organize klasörlerine dokunma
+        for item in target_folder.iterdir():
             if item.is_dir() or item.name.startswith("."):
                 continue
             if item.name in {k for k in type_map}:
                 continue
 
             ext        = item.suffix.lower()
-            target_dir = desktop / "Others"
+            target_dir = target_folder / "Others"
             for folder, exts in type_map.items():
                 if ext in exts:
-                    target_dir = desktop / folder
+                    target_dir = target_folder / folder
                     break
 
             target_dir.mkdir(exist_ok=True)
@@ -429,7 +441,7 @@ def organize_desktop() -> str:
             shutil.move(str(item), str(new_path))
             moved.append(f"{item.name} → {target_dir.name}/")
 
-        result = f"Desktop organized: {len(moved)} files moved."
+        result = f"{target_folder.name} organized: {len(moved)} files moved."
         if moved:
             preview = moved[:8]
             result += "\n" + "\n".join(preview)
@@ -437,10 +449,12 @@ def organize_desktop() -> str:
                 result += f"\n... and {len(moved) - 8} more."
         if skipped:
             result += f"\n{len(skipped)} file(s) skipped (name conflict)."
+        if not moved and not skipped:
+            result += " (nothing to organize — no loose files found)"
         return result
 
     except Exception as e:
-        return f"Could not organize desktop: {e}"
+        return f"Could not organize {path}: {e}"
 
 
 def get_file_info(path: str, name: str = "") -> str:
@@ -467,6 +481,28 @@ def get_file_info(path: str, name: str = "") -> str:
     except Exception as e:
         return f"Could not get file info: {e}"
 
+def open_location(path: str, name: str = "") -> str:
+    try:
+        base   = _resolve_path(path)
+        target = (base / name) if name else base
+        if not _is_safe_path(target):
+            return f"Access denied: {target}"
+        if not target.exists():
+            return f"Not found: {target}"
+
+        if _OS == "Windows":
+            os.startfile(str(target))
+        elif _OS == "Darwin":
+            subprocess.run(["open", str(target)])
+        else:
+            subprocess.run(["xdg-open", str(target)])
+
+        kind = "folder" if target.is_dir() else "file"
+        return f"Opened {kind}: {target.name}"
+
+    except Exception as e:
+        return f"Could not open: {e}"
+
 def file_controller(
     parameters: dict = None,
     response=None,
@@ -484,6 +520,9 @@ def file_controller(
     try:
         if action == "list":
             return list_files(path)
+
+        elif action in ("open", "open_location", "open_folder"):
+            return open_location(path, name=name)
 
         elif action == "create_file":
             return create_file(path, name=name, content=params.get("content", ""))
@@ -530,8 +569,8 @@ def file_controller(
         elif action == "disk_usage":
             return get_disk_usage(path)
 
-        elif action == "organize_desktop":
-            return organize_desktop()
+        elif action in ("organize_desktop", "organize_folder"):
+            return organize_folder(path)
 
         elif action == "info":
             return get_file_info(path, name=name)
