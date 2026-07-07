@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Simple Voice Tester</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; background: #fafafa; }
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        label { font-weight: bold; display: block; margin-top: 15px; margin-bottom: 5px; }
+        input, select, button { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 15px; }
+        button { background: #007bff; color: white; border: none; cursor: pointer; margin-top: 20px; font-weight: bold; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; }
+        #status { margin-top: 15px; font-weight: bold; text-align: center; color: #555; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h2>Gemini TTS Voice Tester</h2>
+        
+        <label>API Key:</label>
+        <input type="password" id="apiKey" placeholder="AIzaSy...">
+
+        <label>Select Voice:</label>
+        <select id="voiceName">
+            <option value="Puck">Puck (Upbeat)</option>
+            <option value="Aoede">Aoede (Breezy)</option>
+            <option value="Charon">Charon (Informative)</option>
+            <option value="Kore">Kore (Firm)</option>
+            <option value="Fenrir">Fenrir (Excitable)</option>
+            <option value="Alnilam">Alnilam (Firm)</option>
+            <option value="Gacrux">Gacrux (Mature)</option>
+            <option value="Achernar">Achernar (Soft)</option>
+            <option value="Achird">Achird (Friendly)</option>
+            <option value="Algenib">Algenib (Gravelly)</option>
+            <option value="Algieba">Algieba (Smooth)</option>
+            <option value="Alnilam">Alnilam (Firm)</option>
+            <option value="Aoede">Aoede (Breezy)</option>
+            <option value="Autonoe">Autonoe (Bright)</option>
+            <option value="Callirrhoe">Callirrhoe (Easy-going)</option>
+            <option value="Charon">Charon (Informative)</option>
+            <option value="Despina">Despina (Smooth)</option>
+            <option value="Enceladus">Enceladus (Breathy)</option>
+            <option value="Erinome">Erinome (Clear)</option>
+            <option value="Fenrir">Fenrir (Excitable)</option>
+            <option value="Gacrux">Gacrux (Mature)</option>
+            <option value="Iapetus">Iapetus (Clear)</option>
+            <option value="Kore">Kore (Firm)</option>
+            <option value="Laomedeia">Laomedeia (Upbeat)</option>
+            <option value="Leda">Leda (Youthful)</option>
+            <option value="Orus">Orus (Firm)</option>
+            <option value="Puck">Puck (Upbeat)</option>
+            <option value="Pulcherrima">Pulcherrima (Forward)</option>
+            <option value="Rasalgethi">Rasalgethi (Informative)</option>
+            <option value="Sadachbia">Sadachbia (Lively)</option>
+            <option value="Sadaltager">Sadaltager (Knowledgeable)</option>
+            <option value="Schedar">Schedar (Even)</option>
+            <option value="Sulafat">Sulafat (Warm)</option>
+            <option value="Umbriel">Umbriel (Easy-going)</option>
+            <option value="Vindemiatrix">Vindemiatrix (Gentle)</option>
+            <option value="Zephyr">Zephyr (Bright)</option>
+            <option value="Zubenelgenubi">Zubenelgenubi (Casual)</option>
+            </select>
+
+        <label>Text to Speak:</label>
+        <input type="text" id="textInput" value="Hello! This is a test of my voice profile. How do I sound?">
+
+        <button id="speakBtn">Generate & Play Audio</button>
+        <div id="status">Ready</div>
+    </div>
+
+    <script>
+        document.getElementById('speakBtn').onclick = async () => {
+            const key = document.getElementById('apiKey').value.trim();
+            const voice = document.getElementById('voiceName').value;
+            const text = document.getElementById('textInput').value;
+            const statusLabel = document.getElementById('status');
+            const btn = document.getElementById('speakBtn');
+
+            if (!key) return alert('Please enter your API Key');
+
+            btn.disabled = true;
+            statusLabel.textContent = "Generating audio... (Please wait)";
+
+            try {
+                // Using the standard REST endpoint instead of WebSockets
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts-preview:generateContent?key=${key}`;
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: text }] }],
+                        generationConfig: {
+                            responseModalities: ["AUDIO"],
+                            speechConfig: {
+                                voiceConfig: {
+                                    prebuiltVoiceConfig: { voiceName: voice }
+                                }
+                            }
+                        }
+                    })
+                });
+
+                if (!response.ok) throw new Error(`API Error: ${response.status}`);
+                
+                const data = await response.json();
+                
+                // Extract the base64 audio data from the response
+                const base64Audio = data.candidates[0].content.parts[0].inlineData.data;
+                playBase64PCM(base64Audio);
+                
+                statusLabel.textContent = "Playing audio!";
+            } catch (err) {
+                console.error(err);
+                statusLabel.textContent = "Error generating audio. Check console.";
+            } finally {
+                btn.disabled = false;
+            }
+        };
+
+        // Decodes the raw PCM data sent by Gemini and plays it
+        function playBase64PCM(base64) {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const binaryString = window.atob(base64);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            
+            // Convert to 16-bit PCM, then to Float32 for the Web Audio API
+            const int16Array = new Int16Array(bytes.buffer);
+            const float32Array = new Float32Array(int16Array.length);
+            for (let i = 0; i < int16Array.length; i++) {
+                float32Array[i] = int16Array[i] / 32768;
+            }
+            
+            const audioBuffer = audioCtx.createBuffer(1, float32Array.length, 24000);
+            audioBuffer.getChannelData(0).set(float32Array);
+            
+            const source = audioCtx.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioCtx.destination);
+            source.start();
+        }
+    </script>
+</body>
+</html>
